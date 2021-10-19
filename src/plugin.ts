@@ -184,7 +184,7 @@ export class StripeTerminalPlugin {
     const terminal = new StripeTerminalPlugin(options)
 
     await terminal.init()
-
+    
     return terminal
   }
 
