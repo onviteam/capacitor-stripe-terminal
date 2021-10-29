@@ -1,13 +1,14 @@
 import Capacitor
 import Foundation
 import StripeTerminal
+import CoreLocation
 
 /**
  * Please read the Capacitor iOS Plugin Development Guide
  * here: https://capacitor.ionicframework.com/docs/plugins/ios
  */
 @objc(StripeTerminal)
-public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelegate, TerminalDelegate, BluetoothReaderDelegate {
+public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelegate, TerminalDelegate, BluetoothReaderDelegate, CLLocationManagerDelegate {
     private var pendingConnectionTokenCompletionBlock: ConnectionTokenCompletionBlock?
     private var pendingDiscoverReaders: Cancelable?
     private var pendingInstallUpdate: Cancelable?
@@ -15,6 +16,7 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
     private var currentUpdate: ReaderSoftwareUpdate?
     private var currentPaymentIntent: PaymentIntent?
     private var isInitialized: Bool = false
+    private var locationManager: CLLocationManager = CLLocationManager()
 
     private var readers: [Reader]?
 
@@ -26,8 +28,19 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
         // self.notifyListeners("log", data: ["logline": logline])
     }
 
-    @objc func getPermissions(_ call: CAPPluginCall) {
-        call.resolve(["granted": true])
+    @objc func requestLocationPermission(_ call: CAPPluginCall) {
+        self.locationManager.delegate = self
+        
+        let currentStatus = CLLocationManager.authorizationStatus()
+        
+        // Only ask authorization if it was never asked before
+        guard currentStatus == .notDetermined else {
+            call.resolve(["value": currentStatus.rawValue])
+            return
+        }
+
+        self.locationManager.requestWhenInUseAuthorization()
+        call.resolve(["value": currentStatus.rawValue])
     }
 
     @objc func initialize(_ call: CAPPluginCall) {
@@ -459,5 +472,11 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
 
     public func reader(_: Reader, didRequestReaderDisplayMessage displayMessage: ReaderDisplayMessage) {
         notifyListeners("didRequestReaderDisplayMessage", data: ["value": displayMessage.rawValue])
+    }
+    
+    // MARK: CLLocationManagerDelegate
+    
+    public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        notifyListeners("didChangeAuthorization", data: ["value": status.rawValue])
     }
 }

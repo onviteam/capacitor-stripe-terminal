@@ -17,6 +17,7 @@ import {
   SimulatorConfiguration,
   DeviceType,
   DeviceStyle,
+  PermissionStatus,
   ReaderSoftwareUpdate
 } from './definitions'
 
@@ -112,7 +113,8 @@ export class StripeTerminalPlugin {
       | 'didReportAvailableUpdate'
       | 'didStartInstallingUpdate'
       | 'didReportReaderSoftwareUpdateProgress'
-      | 'didFinishInstallingUpdate',
+      | 'didFinishInstallingUpdate'
+      | 'didChangeAuthorization',
     transformFunc?: (data: any) => any
   ): Observable<any> {
     return new Observable(subscriber => {
@@ -408,6 +410,17 @@ export class StripeTerminalPlugin {
     )
   }
 
+  public didChangeAuthorization(): Observable<{
+    value?: PermissionStatus
+  }> {
+    return this._listenerToObservable(
+      'didChangeAuthorization',
+      (data: { value?: PermissionStatus }) => {
+        return this.objectExists(data)
+      }
+    )
+  }
+
   public didFinishInstallingUpdate(): Observable<{
     update?: ReaderSoftwareUpdate
     error?: string
@@ -544,8 +557,12 @@ export class StripeTerminalPlugin {
     return DeviceStyle.Internet
   }
 
-  public static async getPermissions(): Promise<{ granted: boolean }> {
-    return await StripeTerminal.getPermissions()
+  public async requestLocationPermission(): Promise<PermissionStatus> {
+    this.ensureInitialized()
+
+    const { value } = await StripeTerminal.requestLocationPermission()
+
+    return value
   }
 
   public async addListener(eventName: string, listenerFunc: Function) {
