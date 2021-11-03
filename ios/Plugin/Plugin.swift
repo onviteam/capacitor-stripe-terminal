@@ -2,13 +2,14 @@ import Capacitor
 import Foundation
 import StripeTerminal
 import CoreLocation
+import CoreBluetooth
 
 /**
  * Please read the Capacitor iOS Plugin Development Guide
  * here: https://capacitor.ionicframework.com/docs/plugins/ios
  */
 @objc(StripeTerminal)
-public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelegate, TerminalDelegate, BluetoothReaderDelegate, CLLocationManagerDelegate {
+public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelegate, TerminalDelegate, BluetoothReaderDelegate, CBCentralManagerDelegate, CLLocationManagerDelegate {
     private var pendingConnectionTokenCompletionBlock: ConnectionTokenCompletionBlock?
     private var pendingDiscoverReaders: Cancelable?
     private var pendingInstallUpdate: Cancelable?
@@ -17,6 +18,7 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
     private var currentPaymentIntent: PaymentIntent?
     private var isInitialized: Bool = false
     private var locationManager: CLLocationManager = CLLocationManager()
+    private var bluetoothManager: CBCentralManager?
 
     private var readers: [Reader]?
 
@@ -26,21 +28,6 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
 
     func onLogEntry(logline _: String) {
         // self.notifyListeners("log", data: ["logline": logline])
-    }
-
-    @objc func requestLocationPermission(_ call: CAPPluginCall) {
-        self.locationManager.delegate = self
-        
-        let currentStatus = CLLocationManager.authorizationStatus()
-        
-        // Only ask authorization if it was never asked before
-        guard currentStatus == .notDetermined else {
-            call.resolve(["value": currentStatus.rawValue])
-            return
-        }
-
-        self.locationManager.requestWhenInUseAuthorization()
-        call.resolve(["value": currentStatus.rawValue])
     }
 
     @objc func initialize(_ call: CAPPluginCall) {
@@ -84,6 +71,67 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
     public func fetchConnectionToken(_ completion: @escaping ConnectionTokenCompletionBlock) {
         pendingConnectionTokenCompletionBlock = completion
         notifyListeners("requestConnectionToken", data: [:])
+    }
+    
+    
+    @objc func requestLocationPermission(_ call: CAPPluginCall) {
+        self.locationManager.delegate = self
+        
+        let currentStatus = CLLocationManager.authorizationStatus()
+        
+        // Only ask authorization if it was never asked before
+        guard currentStatus == .notDetermined else {
+            call.resolve(["value": currentStatus.rawValue])
+            return
+        }
+
+        self.locationManager.requestWhenInUseAuthorization()
+        call.resolve(["value": currentStatus.rawValue])
+    }
+    
+    @objc func requestBluetoothPermission(_ call: CAPPluginCall) {
+        // Authorization is asked on initialization of CBCentralManager
+        bluetoothManager = CBCentralManager()
+        self.bluetoothManager?.delegate = self
+        
+        // Resolve with current status.
+        // Permission will automatically be asked if .notDetermined
+        let currentStatus = self.getBluetoothPermission()
+        call.resolve(["value": currentStatus])
+    }
+    
+    public func getBluetoothPermission() -> Int {
+        if #available(iOS 13.1, *) {
+            return CBCentralManager.authorization.rawValue
+        } else if #available(iOS 13.0, *) {
+            return CBCentralManager().authorization.rawValue
+        }
+        
+        // Before iOS 13, Bluetooth permissions are not required
+        // CBManagerAuthorization.allowedAlways
+        return 3
+    }
+    
+    public func isBluetoothPermissionGranted() -> Bool {
+        if #available(iOS 13.1, *) {
+            return CBCentralManager.authorization == .allowedAlways
+        } else if #available(iOS 13.0, *) {
+            return CBCentralManager().authorization == .allowedAlways
+        }
+        
+        // Before iOS 13, Bluetooth permissions are not required
+        return true
+    }
+    
+    @objc func getGrantedPermissions(_ call: CAPPluginCall) {
+        self.locationManager.delegate = self
+        
+        let locationStatus = CLLocationManager.authorizationStatus()
+        
+        call.resolve([
+            "bluetooth": self.isBluetoothPermissionGranted(),
+            "location": locationStatus == .authorizedWhenInUse || locationStatus == .authorizedAlways,
+        ])
     }
 
     @objc func discoverReaders(_ call: CAPPluginCall) {
@@ -477,6 +525,14 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
     // MARK: CLLocationManagerDelegate
     
     public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        notifyListeners("didChangeAuthorization", data: ["value": status.rawValue])
+        notifyListeners("didChangeLocationAuthorization", data: ["value": status.rawValue])
+    }
+    
+    // MARK: CBCentralManagerDelegate
+    
+    public func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        if #available(iOS 13.0, *) {
+            notifyListeners("didChangeBluetoothAuthorization", data: ["value": central.authorization.rawValue])
+        }
     }
 }

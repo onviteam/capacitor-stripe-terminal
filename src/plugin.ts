@@ -114,7 +114,8 @@ export class StripeTerminalPlugin {
       | 'didStartInstallingUpdate'
       | 'didReportReaderSoftwareUpdateProgress'
       | 'didFinishInstallingUpdate'
-      | 'didChangeAuthorization',
+      | 'didChangeLocationAuthorization'
+      | 'didChangeBluetoothAuthorization',
     transformFunc?: (data: any) => any
   ): Observable<any> {
     return new Observable(subscriber => {
@@ -410,11 +411,22 @@ export class StripeTerminalPlugin {
     )
   }
 
-  public didChangeAuthorization(): Observable<{
+  public didChangeLocationAuthorization(): Observable<{
     value?: PermissionStatus
   }> {
     return this._listenerToObservable(
-      'didChangeAuthorization',
+      'didChangeLocationAuthorization',
+      (data: { value?: PermissionStatus }) => {
+        return this.objectExists(data)
+      }
+    )
+  }
+
+  public didChangeBluetoothAuthorization(): Observable<{
+    value?: PermissionStatus
+  }> {
+    return this._listenerToObservable(
+      'didChangeBluetoothAuthorization',
       (data: { value?: PermissionStatus }) => {
         return this.objectExists(data)
       }
@@ -563,6 +575,18 @@ export class StripeTerminalPlugin {
     const { value } = await StripeTerminal.requestLocationPermission()
 
     return value
+  }
+
+  public async requestBluetoothPermission(): Promise<PermissionStatus> {
+    this.ensureInitialized()
+
+    const { value } = await StripeTerminal.requestBluetoothPermission()
+
+    return value
+  }
+
+  public async getGrantedPermissions(): Promise<any> {
+    return await StripeTerminal.getGrantedPermissions()
   }
 
   public async addListener(eventName: string, listenerFunc: Function) {

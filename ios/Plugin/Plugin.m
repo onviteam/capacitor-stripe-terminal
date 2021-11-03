@@ -21,6 +21,8 @@ CAP_PLUGIN(StripeTerminal, "StripeTerminal",
            CAP_PLUGIN_METHOD(processPayment, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(clearCachedCredentials, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(requestLocationPermission, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(requestBluetoothPermission, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(getGrantedPermissions, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(setReaderDisplay, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(clearReaderDisplay, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(listLocations, CAPPluginReturnPromise);
