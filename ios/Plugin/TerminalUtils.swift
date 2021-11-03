@@ -1,11 +1,3 @@
-//
-//  TerminalUtils.swift
-//  Plugin
-//
-//  Created by Noah Prail on 6/28/20.
-//  Copyright © 2020 eventOne, Inc. All rights reserved.
-//
-
 import Foundation
 import StripeTerminal
 

@@ -1,5 +1,35 @@
 import type { PluginListenerHandle } from '@capacitor/core'
 
+export enum PermissionStatus {
+  /**
+   * User has not yet made a choice with regards to this application
+   */
+  NotDetermined = 0,
+  /**
+   * This application is not authorized to use location services. Due
+   * to active restrictions on location services, the user cannot change
+   * this status, and may not have personally denied authorization
+   */
+  Restricted = 1,
+  /**
+   * User has explicitly denied authorization for this application, or
+   * location services are disabled in Settings.
+   */
+  Denied = 2,
+  /**
+   * User has granted authorization to use their location at any time. 
+   * Your app may be launched into the background by monitoring APIs 
+   * such as visit monitoring, region monitoring, and significant
+   * location change monitoring.
+   */
+  AuthorizedAlways = 3,
+  /**
+   * User has granted authorization to use their location only 
+   * while they are using your app.
+   */
+  AuthorizedWhenInUse = 4
+}
+
 /**
  * @category Terminal
  */
@@ -736,7 +766,11 @@ export interface StripeTerminalInterface {
     config: SimulatorConfiguration
   ): Promise<SimulatorConfiguration>
 
-  getPermissions(): Promise<{ granted: boolean }>
+  requestLocationPermission(): Promise<{ value: PermissionStatus }>
+
+  requestBluetoothPermission(): Promise<{ value: PermissionStatus }>
+
+  getGrantedPermissions(): Promise<{ bluetooth: boolean, location: boolean }>
 
   addListener(
     eventName: 'requestConnectionToken',
