@@ -585,7 +585,7 @@ export class StripeTerminalPlugin {
     return value
   }
 
-  public async getGrantedPermissions(): Promise<any> {
+  public async getGrantedPermissions(): Promise<{ bluetooth: boolean, location: boolean }> {
     return await StripeTerminal.getGrantedPermissions()
   }
 

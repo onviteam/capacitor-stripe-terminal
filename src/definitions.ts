@@ -769,8 +769,8 @@ export interface StripeTerminalInterface {
   requestLocationPermission(): Promise<{ value: PermissionStatus }>
 
   requestBluetoothPermission(): Promise<{ value: PermissionStatus }>
-  
-  getGrantedPermissions(): Promise<any>
+
+  getGrantedPermissions(): Promise<{ bluetooth: boolean, location: boolean }>
 
   addListener(
     eventName: 'requestConnectionToken',
