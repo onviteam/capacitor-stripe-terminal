@@ -41,18 +41,7 @@
     "url": "https://github.com/eventOneHQ/capacitor-stripe-terminal"
   },
   "bugs": {
-    "url": "https://github.com/eventOneHQ/capacitor-stripe-terminal/issues"
+    "url": "https://github.com/onviteam/capacitor-stripe-terminal/issues"
   },
-  "release": {
-    "branches": [
-      {
-        "name": "next"
-      },
-      {
-        "name": "beta",
-        "channel": "beta",
-        "prerelease": true
-      }
-    ]
-  }
+  "homepage": "https://github.com/onviteam/capacitor-stripe-terminal#readme",
 }
