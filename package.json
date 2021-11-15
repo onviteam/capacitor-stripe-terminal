@@ -10,7 +10,7 @@
     "watch": "tsc --watch",
     "prepublishOnly": "npm run build"
   },
-  "author": "eventOne Labs <opensource@event1.io>",
+  "author": "Joe Smalley <joe@onvi.com>",
   "license": "MIT",
   "dependencies": {
     "@capacitor/core": "^3.2.4",
