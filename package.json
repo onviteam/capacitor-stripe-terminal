@@ -22,7 +22,7 @@
   "files": [
     "dist/",
     "ios/",
-    "CapacitorStripeTerminal.podspec"
+    "OnvitechCapacitorStripeTerminal.podspec"
   ],
   "keywords": [
     "capacitor",
