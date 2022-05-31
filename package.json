@@ -1,6 +1,6 @@
 {
   "name": "@onvitech/capacitor-stripe-terminal",
-  "version": "0.2.0",
+  "version": "2.0.0",
   "description": "Capacitor plugin for Stripe Terminal (credit card readers).",
   "main": "dist/esm/index.js",
   "types": "dist/esm/index.d.ts",
@@ -38,7 +38,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/eventOneHQ/capacitor-stripe-terminal"
+    "url": "https://github.com/onviteam/capacitor-stripe-terminal"
   },
   "bugs": {
     "url": "https://github.com/onviteam/capacitor-stripe-terminal/issues"
