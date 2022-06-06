@@ -1,7 +1,7 @@
 
   Pod::Spec.new do |s|
     s.name = 'OnvitechCapacitorStripeTerminal'
-    s.version = '2.1.0'
+    s.version = '2.1.1'
     s.summary = 'Capacitor plugin for Stripe Terminal (credit card readers).'
     s.license = 'MIT'
     s.homepage = 'https://github.com/onviteam/capacitor-stripe-terminal'
