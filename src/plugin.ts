@@ -18,7 +18,8 @@ import {
   DeviceType,
   DeviceStyle,
   PermissionStatus,
-  ReaderSoftwareUpdate
+  ReaderSoftwareUpdate,
+  CollectPaymentMethodParameters,
 } from './definitions'
 
 import { StripeTerminal } from './plugin-registration'
@@ -455,10 +456,14 @@ export class StripeTerminalPlugin {
     return this.objectExists(data?.intent)
   }
 
-  public async collectPaymentMethod(): Promise<PaymentIntent> {
+  public async collectPaymentMethod({
+    skipTipping = false
+  }: CollectPaymentMethodParameters = {}): Promise<PaymentIntent> {
     this.ensureInitialized()
 
-    const data = await StripeTerminal.collectPaymentMethod()
+    const data = await StripeTerminal.collectPaymentMethod({
+      skipTipping
+    })
 
     return this.objectExists(data?.intent)
   }
