@@ -1,6 +1,6 @@
 {
   "name": "@onvitech/capacitor-stripe-terminal",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Capacitor plugin for Stripe Terminal (credit card readers).",
   "main": "dist/esm/index.js",
   "types": "dist/esm/index.d.ts",

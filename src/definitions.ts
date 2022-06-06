@@ -644,6 +644,16 @@ export interface ListLocationsParameters {
 }
 
 /**
+ * Parameters to be used when calling `collectPaymentMethod()`.
+ */
+export interface CollectPaymentMethodParameters {
+  /**
+   * Whether the tipping options should be displayed on the Card Reader.
+   */
+  skipTipping?: boolean
+}
+
+/**
  * Simulator specific configurations you can set to test your integration's behavior in different scenarios. We recommend changing these properties during testing to ensure your app works as expected for different reader updates and for different presented cards.
  */
 export interface SimulatorConfiguration {
@@ -744,7 +754,9 @@ export interface StripeTerminalInterface {
     clientSecret: string
   }): Promise<{ intent: PaymentIntent }>
 
-  collectPaymentMethod(): Promise<{ intent: PaymentIntent }>
+  collectPaymentMethod(options: {
+    skipTipping: boolean
+  }): Promise<{ intent: PaymentIntent }>
 
   cancelCollectPaymentMethod(): Promise<void>
 
