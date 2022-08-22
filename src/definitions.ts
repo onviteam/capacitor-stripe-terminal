@@ -724,6 +724,8 @@ export interface StripeTerminalInterface {
 
   cancelDiscoverReaders(): Promise<void>
 
+  cancelReaderReconnect(): Promise<void>
+
   connectBluetoothReader(options: {
     serialNumber: string
     locationId: string
@@ -790,7 +792,7 @@ export interface StripeTerminalInterface {
   ): Promise<PluginListenerHandle> & PluginListenerHandle
 
   addListener(
-    eventName: 'didReportUnexpectedReaderDisconnect',
+    eventName: 'didReportReaderReconnectStart' | 'didReportReaderReconnectSuccess' | 'didReportReaderReconnectFail',
     listenerFunc: () => void
   ): Promise<PluginListenerHandle> & PluginListenerHandle
 

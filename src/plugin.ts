@@ -24,23 +24,12 @@ import {
 
 import { StripeTerminal } from './plugin-registration'
 
-/**
- * The Android connection status enum is different from iOS, this maps Android to iOS
- * @ignore
- */
-const AndroidConnectionStatusMap = {
-  0: ConnectionStatus.NotConnected,
-  1: ConnectionStatus.Connecting,
-  2: ConnectionStatus.Connected
-}
-
 export class StripeTerminalPlugin {
   public isInitialized = false
 
-  private _fetchConnectionToken: () => Promise<string> = () =>
-    Promise.reject('You must initialize StripeTerminalPlugin first.')
-  private _onUnexpectedReaderDisconnect: () => void = () =>
-    Promise.reject('You must initialize StripeTerminalPlugin first.')
+  private _fetchConnectionToken: () => Promise<string> = () => {
+    return Promise.reject('You must initialize StripeTerminalPlugin first.')
+  }
 
   private isDiscovering = false
   private listeners: { [key: string]: PluginListenerHandle } = {}
@@ -56,7 +45,6 @@ export class StripeTerminalPlugin {
    */
   constructor(options: StripeTerminalConfig) {
     this._fetchConnectionToken = options.fetchConnectionToken
-    this._onUnexpectedReaderDisconnect = options.onUnexpectedReaderDisconnect
   }
 
   private async init() {
@@ -80,14 +68,6 @@ export class StripeTerminalPlugin {
           )
       })
 
-    this.listeners['unexpectedReaderDisconnectListener'] =
-      await StripeTerminal.addListener(
-        'didReportUnexpectedReaderDisconnect',
-        () => {
-          this._onUnexpectedReaderDisconnect()
-        }
-      )
-
     await StripeTerminal.initialize()
 
     this.isInitialized = true
@@ -97,18 +77,14 @@ export class StripeTerminalPlugin {
     status: ConnectionStatus
     isAndroid?: boolean
   }): ConnectionStatus {
-    let status: ConnectionStatus = data.status
-
-    if (data.isAndroid) {
-      // the connection status on android is different than on iOS so we have to translate it
-      status = AndroidConnectionStatusMap[data.status]
-    }
-
-    return status
+    return data.status
   }
 
   private _listenerToObservable(
     name:
+      | 'didReportReaderReconnectStart'
+      | 'didReportReaderReconnectSuccess'
+      | 'didReportReaderReconnectFail'
       | 'didRequestReaderDisplayMessage'
       | 'didRequestReaderInput'
       | 'didReportAvailableUpdate'
@@ -203,6 +179,14 @@ export class StripeTerminalPlugin {
       this.isDiscovering = false
     } catch (err) {
       // eat errors
+    }
+  }
+
+  public async cancelReaderReconnect(): Promise<void> {
+    try {
+      await StripeTerminal.cancelReaderReconnect()
+    } catch (error) {
+      // do nothing
     }
   }
 
@@ -364,6 +348,18 @@ export class StripeTerminalPlugin {
     this.ensureInitialized()
 
     return await StripeTerminal.cancelInstallUpdate()
+  }
+
+  public didStartReaderReconnect(): Observable<object> {
+    return this._listenerToObservable('didReportReaderReconnectStart', () => ({}))
+  }
+
+  public didSucceedReaderReconnect(): Observable<object> {
+    return this._listenerToObservable('didReportReaderReconnectSuccess', () => ({}))
+  }
+
+  public didFailReaderReconnect(): Observable<object> {
+    return this._listenerToObservable('didReportReaderReconnectFail', () => ({}))
   }
 
   public didRequestReaderInput(): Observable<ReaderInputOptions> {

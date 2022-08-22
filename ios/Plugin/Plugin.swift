@@ -9,9 +9,10 @@ import CoreBluetooth
  * here: https://capacitor.ionicframework.com/docs/plugins/ios
  */
 @objc(StripeTerminal)
-public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelegate, TerminalDelegate, BluetoothReaderDelegate, CBCentralManagerDelegate, CLLocationManagerDelegate {
+public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelegate, TerminalDelegate, BluetoothReaderDelegate, ReconnectionDelegate, CBCentralManagerDelegate, CLLocationManagerDelegate {
     private var pendingConnectionTokenCompletionBlock: ConnectionTokenCompletionBlock?
     private var pendingDiscoverReaders: Cancelable?
+    private var pendingReaderReconnect: Cancelable?
     private var pendingInstallUpdate: Cancelable?
     private var pendingCollectPaymentMethod: Cancelable?
     private var currentUpdate: ReaderSoftwareUpdate?
@@ -22,10 +23,6 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
     private var bluetoothManager: CBCentralManager?
 
     private var readers: [Reader]?
-
-    func logMsg(items: Any...) {
-        print("SWIFT \(items)")
-    }
 
     func onLogEntry(logline _: String) {
         // self.notifyListeners("log", data: ["logline": logline])
@@ -147,9 +144,12 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
 
         pendingDiscoverReaders = nil
 
-        let config = DiscoveryConfiguration(discoveryMethod: discoveryMethod,
-                                            locationId: locationId,
-                                            simulated: simulated)
+        let config = DiscoveryConfiguration(
+            discoveryMethod: discoveryMethod,
+            locationId: locationId,
+            simulated: simulated
+        )
+        
         pendingDiscoverReaders = Terminal.shared.discoverReaders(config, delegate: self, completion: { error in
             self.pendingDiscoverReaders = nil
 
@@ -177,6 +177,23 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
         call?.resolve()
     }
 
+    @objc func cancelReaderReconnect(_ call: CAPPluginCall? = nil) {
+        if let cancelable = pendingReaderReconnect {
+            cancelable.cancel { error in
+                if let error = error {
+                    call?.reject(error.localizedDescription, nil, error)
+                } else {
+                    print("CANCEL SUCCESSFUL")
+                    call?.resolve()
+                }
+            }
+
+            return
+        }
+
+        call?.resolve()
+    }
+
     @objc func connectBluetoothReader(_ call: CAPPluginCall) {
         guard let serialNumber = call.getString("serialNumber") else {
             call.reject("Must provide a serial number")
@@ -193,10 +210,13 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
             return
         }
 
-        let connectionConfig = BluetoothConnectionConfiguration(locationId: locationId)
+        let connectionConfig = BluetoothConnectionConfiguration(
+            locationId: locationId,
+            autoReconnectOnUnexpectedDisconnect: true,
+            autoReconnectionDelegate: self
+        )
 
         // this must be run on the main thread
-        // https://stackoverflow.com/questions/44767778/main-thread-checker-ui-api-called-on-a-background-thread-uiapplication-appli
         DispatchQueue.main.async {
             Terminal.shared.connectBluetoothReader(reader, delegate: self, connectionConfig: connectionConfig, completion: { reader, error in
                 if let reader = reader {
@@ -520,8 +540,8 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
     // MARK: TerminalDelegate
 
     public func terminal(_: Terminal, didReportUnexpectedReaderDisconnect reader: Reader) {
-        logMsg(items: "didReportUnexpectedReaderDisconnect \(reader)")
-        notifyListeners("didReportUnexpectedReaderDisconnect", data: ["reader": StripeTerminalUtils.serializeReader(reader: reader)])
+        // Do nothing since we are conforming to ReconnectionDelegate.
+        // Reader reconnection will be attempted automatically.
     }
 
     public func terminal(_: Terminal, didChangeConnectionStatus status: ConnectionStatus) {
@@ -564,6 +584,24 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
 
     public func reader(_: Reader, didRequestReaderDisplayMessage displayMessage: ReaderDisplayMessage) {
         notifyListeners("didRequestReaderDisplayMessage", data: ["value": displayMessage.rawValue])
+    }
+    
+    // MARK: ReconnectionDelegate
+
+    // Notified at the start of a reconnection attempt
+    public func terminal(_ terminal: Terminal, didStartReaderReconnect cancelable: Cancelable) {
+        pendingReaderReconnect = cancelable
+        notifyListeners("didReportReaderReconnectStart", data: [:])
+    }
+
+    // Notified when reader reconnection succeeds
+    public func terminalDidSucceedReaderReconnect(_ terminal: Terminal) {        
+        notifyListeners("didReportReaderReconnectSuccess", data: [:])
+    }
+    
+    // Notified when reader reconnection fails
+    public func terminalDidFailReaderReconnect(_ terminal: Terminal) {
+        notifyListeners("didReportReaderReconnectFail", data: [:])
     }
     
     // MARK: CLLocationManagerDelegate
