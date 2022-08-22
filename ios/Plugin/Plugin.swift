@@ -17,6 +17,7 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
     private var currentUpdate: ReaderSoftwareUpdate?
     private var currentPaymentIntent: PaymentIntent?
     private var isInitialized: Bool = false
+    private var thread = DispatchQueue.init(label: "CapacitorStripeTerminal")
     private var locationManager: CLLocationManager = CLLocationManager()
     private var bluetoothManager: CBCentralManager?
 
@@ -247,6 +248,7 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
             return
         }
 
+        let semaphore = DispatchSemaphore(value: 0)
         DispatchQueue.main.async {
             Terminal.shared.disconnectReader { error in
                 if let error = error {
@@ -254,8 +256,10 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
                 } else {
                     call.resolve()
                 }
+                semaphore.signal()
             }
         }
+        _ = semaphore.wait(timeout: .now() + 10)
     }
 
     @objc func installAvailableUpdate(_ call: CAPPluginCall) {
@@ -300,16 +304,24 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
             call.reject("Must provide a clientSecret")
             return
         }
+        
+        let semaphore = DispatchSemaphore(value: 0)
+    
+        thread.async {
+            Terminal.shared.retrievePaymentIntent(clientSecret: clientSecret) { retrieveResult, retrieveError in
+                self.currentPaymentIntent = retrieveResult
 
-        Terminal.shared.retrievePaymentIntent(clientSecret: clientSecret) { retrieveResult, retrieveError in
-            self.currentPaymentIntent = retrieveResult
-
-            if let error = retrieveError {
-                call.reject(error.localizedDescription, nil, error)
-            } else if let paymentIntent = retrieveResult {
-                call.resolve(["intent": StripeTerminalUtils.serializePaymentIntent(intent: paymentIntent)])
+                if let error = retrieveError {
+                    call.reject(error.localizedDescription, nil, error)
+                } else if let paymentIntent = retrieveResult {
+                    call.resolve(["intent": StripeTerminalUtils.serializePaymentIntent(intent: paymentIntent)])
+                }
+                
+                semaphore.signal()
             }
         }
+        
+        _ = semaphore.wait(timeout: .now() + 10)
     }
 
     @objc func cancelCollectPaymentMethod(_ call: CAPPluginCall? = nil) {
@@ -333,7 +345,7 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
         let shouldSkipTipping: Bool = call.getBool("skipTipping") ?? false
         let collectConfig = CollectConfiguration(skipTipping: shouldSkipTipping)
         
-        if let intent = currentPaymentIntent {
+        if let intent = self.currentPaymentIntent {
             pendingCollectPaymentMethod = Terminal.shared.collectPaymentMethod(intent, collectConfig: collectConfig) { collectResult, collectError in
                 self.pendingCollectPaymentMethod = nil
 
@@ -350,23 +362,27 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
     }
 
     @objc func processPayment(_ call: CAPPluginCall) {
-        if let intent = currentPaymentIntent {
-            Terminal.shared.processPayment(intent) { paymentIntent, error in
-                if let error = error {
-                    call.reject(error.localizedDescription, nil, error)
-                } else if let paymentIntent = paymentIntent {
-                    self.currentPaymentIntent = paymentIntent
-                    call.resolve(["intent": StripeTerminalUtils.serializePaymentIntent(intent: paymentIntent)])
+        thread.async {
+            if let intent = self.currentPaymentIntent {
+                Terminal.shared.processPayment(intent) { paymentIntent, error in
+                    if let error = error {
+                        call.reject(error.localizedDescription, nil, error)
+                    } else if let paymentIntent = paymentIntent {
+                        self.currentPaymentIntent = paymentIntent
+                        call.resolve(["intent": StripeTerminalUtils.serializePaymentIntent(intent: paymentIntent)])
+                    }
                 }
+            } else {
+                call.reject("There is no active payment intent. Make sure you called retrievePaymentIntent first")
             }
-        } else {
-            call.reject("There is no active payment intent. Make sure you called retrievePaymentIntent first")
         }
     }
 
     @objc func clearCachedCredentials(_ call: CAPPluginCall) {
-        Terminal.shared.clearCachedCredentials()
-        call.resolve()
+        thread.async {
+            Terminal.shared.clearCachedCredentials()
+            call.resolve()
+        }
     }
 
     @objc func setReaderDisplay(_ call: CAPPluginCall) {
@@ -387,24 +403,40 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
         }
 
         cart.lineItems = lineItemsArray
+        
+        let semaphore = DispatchSemaphore(value: 0)
 
-        Terminal.shared.setReaderDisplay(cart) { error in
-            if let error = error {
-                call.reject(error.localizedDescription, nil, error)
-            } else {
-                call.resolve()
+        thread.async {
+            Terminal.shared.setReaderDisplay(cart) { error in
+                if let error = error {
+                    call.reject(error.localizedDescription, nil, error)
+                } else {
+                    call.resolve()
+                }
+                
+                semaphore.signal()
             }
         }
+        
+        _ = semaphore.wait(timeout: .now() + 10)
     }
 
     @objc func clearReaderDisplay(_ call: CAPPluginCall) {
-        Terminal.shared.clearReaderDisplay { error in
-            if let error = error {
-                call.reject(error.localizedDescription, nil, error)
-            } else {
-                call.resolve()
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        thread.async {
+            Terminal.shared.clearReaderDisplay { error in
+                if let error = error {
+                    call.reject(error.localizedDescription, nil, error)
+                } else {
+                    call.resolve()
+                }
+                
+                semaphore.signal()
             }
         }
+        
+        _ = semaphore.wait(timeout: .now() + 10)
     }
 
     @objc func listLocations(_ call: CAPPluginCall) {
@@ -419,21 +451,30 @@ public class StripeTerminal: CAPPlugin, ConnectionTokenProvider, DiscoveryDelega
                                              endingBefore: endingBefore,
                                              startingAfter: startingAfter)
         }
-        Terminal.shared.listLocations(parameters: params) { locations, hasMore, error in
-            if let error = error {
-                call.reject(error.localizedDescription, nil, error)
-            } else {
-                let locationsJSON = locations?.map {
-                    (location: Location) -> [String: Any] in
-                    StripeTerminalUtils.serializeLocation(location: location)
-                }
+        
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        thread.async {
+            Terminal.shared.listLocations(parameters: params) { locations, hasMore, error in
+                if let error = error {
+                    call.reject(error.localizedDescription, nil, error)
+                } else {
+                    let locationsJSON = locations?.map {
+                        (location: Location) -> [String: Any] in
+                        StripeTerminalUtils.serializeLocation(location: location)
+                    }
 
-                call.resolve([
-                    "hasMore": hasMore,
-                    "locations": locationsJSON as Any,
-                ])
+                    call.resolve([
+                        "hasMore": hasMore,
+                        "locations": locationsJSON as Any,
+                    ])
+                }
+                
+                semaphore.signal()
             }
         }
+        
+        _ = semaphore.wait(timeout: .now() + 10)
     }
     
     @objc func getSimulatorConfiguration(_ call: CAPPluginCall) {
